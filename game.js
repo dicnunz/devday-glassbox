@@ -1,5 +1,6 @@
 const canvas = document.querySelector("#game");
 const ctx = canvas.getContext("2d");
+const PUBLIC_URL = "https://dicnunz.github.io/devday-glassbox/";
 const roomStatus = document.querySelector("#roomStatus");
 const objectiveStatus = document.querySelector("#objectiveStatus");
 const receiptStatus = document.querySelector("#receiptStatus");
@@ -256,7 +257,7 @@ function drawOverlay() {
       : "Resume when ready. The glass remembers every constraint.";
     ctx.fillText(line, 76, 142);
     if (state.won) {
-      ctx.fillText("Playable link: public URL appears in the contest reply after deployment.", 76, 174);
+      ctx.fillText(`Playable link: ${PUBLIC_URL}`, 76, 174);
       ctx.fillText("Unofficial contest entry. No backend, tracking, accounts, or paid APIs.", 76, 206);
     }
   }
