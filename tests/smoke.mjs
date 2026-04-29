@@ -39,13 +39,7 @@ await page.locator("#aboutBtn").click();
 await page.locator("dialog button").click();
 await page.locator('[data-action="right"]').click();
 await page.locator('[data-action="rotate"]').click();
-await page.evaluate(() => {
-  for (let i = 0; i < 7; i += 1) {
-    window.glassbox.applySolution();
-    window.glassbox.completeLevelForTest();
-    if (i < 6) window.glassbox.nextLevelForTest();
-  }
-});
+await page.evaluate(() => window.glassbox.solveAllForTest());
 await page.screenshot({ path: "devday-glassbox-proof/screenshots/local-game-win.png", fullPage: true });
 const state = await page.evaluate(() => window.glassbox.getState());
 if (!state.campaignComplete || state.levelIndex !== 6) throw new Error("final win state not reached");
