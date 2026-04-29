@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node scripts/build-check.mjs",
     "serve": "python3 -m http.server 4173",
-    "test": "node tests/smoke.mjs"
+    "test": "NODE_PATH=/Users/nicdunz/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules node tests/smoke.mjs"
   },
   "devDependencies": {}
 }
