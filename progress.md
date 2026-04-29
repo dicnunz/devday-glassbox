@@ -3,7 +3,7 @@ Original prompt: Rebuild Glassbox from the rejected meta DevDay version into a p
 # Progress
 
 - 2026-04-29 18:12 EDT: Public replacement is live at `https://dicnunz.github.io/devday-glassbox/`.
-- Current tracked HEAD after rebuild: `9d67be6 Fix local smoke test runtime path` before this documentation cleanup.
+- Current tracked baseline: the pushed glass-lab rebuild on `main`; use `git log -1 --oneline` for the exact latest hash.
 - Local checks passed before this note: `npm run build` and `npm run test`.
 - Public checks passed before this note: GitHub Pages status `built`, public HTML marker present, `game.js` seven-level marker present, generated victory asset returned HTTP 200, Atlas screenshot captured at `devday-glassbox-proof/screenshots/public-game-rebuilt-atlas.png`.
 - Final X/OpenAI contest reply is not posted. It still requires a fresh exact approval request.
