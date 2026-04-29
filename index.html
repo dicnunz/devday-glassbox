@@ -4,54 +4,64 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Glassbox: The One-Prompt Escape</title>
-    <meta name="description" content="An unofficial OpenAI DevDay 2026 contest entry: guide a tiny Codex cursor from idea to public submission without breaking the rules.">
+    <meta name="description" content="An unofficial OpenAI DevDay 2026 entry: a glass-lab light-routing escape puzzle built with GPT-5.5 in Codex and Image Gen assets.">
     <meta property="og:title" content="Glassbox: The One-Prompt Escape">
-    <meta property="og:description" content="Built with GPT-5.5 in Codex and original Image Gen assets. Static browser game, zero spend.">
-    <meta property="og:image" content="assets/generated/victory-social-card.png">
-    <link rel="preload" as="image" href="assets/generated/hero-poster.png">
-    <link rel="preload" as="image" href="assets/generated/level-backdrop.png">
+    <meta property="og:description" content="A glass-lab escape puzzle. Static web, original Image Gen art, zero spend.">
+    <meta property="og:image" content="assets/generated/glass-lab-victory.png">
+    <link rel="preload" as="image" href="assets/generated/glass-lab-hero.png">
+    <link rel="preload" as="image" href="assets/generated/glass-lab-board.png">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <main class="shell">
-      <section class="game-panel" aria-label="Glassbox game">
-        <div class="topbar">
+    <main class="app-shell">
+      <section class="title-band" aria-label="Game title">
+        <div>
+          <p>Unofficial contest entry</p>
+          <h1>Glassbox: The One-Prompt Escape</h1>
+        </div>
+        <div class="controls">
+          <button id="aboutBtn" type="button">About</button>
+          <button id="motionBtn" type="button" aria-pressed="false">Reduced motion</button>
+          <button id="soundBtn" type="button" aria-pressed="false">Sound off</button>
+          <button id="pauseBtn" type="button" aria-pressed="false">Pause</button>
+          <button id="restartBtn" type="button">Restart</button>
+        </div>
+      </section>
+
+      <section class="play-layout">
+        <aside class="brief-panel" aria-label="Run briefing">
+          <img src="assets/generated/observatory-card.png" alt="Glass observatory concept art">
           <div>
-            <p class="eyebrow">Unofficial contest entry</p>
-            <h1>Glassbox: The One-Prompt Escape</h1>
+            <h2 id="runTitle">Open the Quiet Vault</h2>
+            <p id="runBrief">Rotate prisms so the beam reaches each seal. Then cross the gate and release the core.</p>
           </div>
-          <div class="actions" aria-label="Game controls">
-            <button id="aboutBtn" type="button">About</button>
-            <button id="motionBtn" type="button" aria-pressed="false">Reduce motion</button>
-            <button id="soundBtn" type="button" aria-pressed="false">Sound off</button>
-            <button id="pauseBtn" type="button" aria-pressed="false">Pause</button>
-            <button id="restartBtn" type="button">Restart</button>
-          </div>
-        </div>
+          <dl>
+            <div><dt>Seals</dt><dd id="sealCount">0 / 5</dd></div>
+            <div><dt>Resets</dt><dd id="resetCount">0</dd></div>
+            <div><dt>Rule</dt><dd>No backend. No trackers. No paid APIs.</dd></div>
+          </dl>
+        </aside>
 
-        <div class="stage-wrap">
-          <canvas id="game" width="960" height="640" aria-label="Top-down puzzle arcade game canvas"></canvas>
-          <div id="touchPad" class="touch-pad" aria-label="Touch movement controls">
-            <button data-dir="up" aria-label="Move up">↑</button>
-            <button data-dir="left" aria-label="Move left">←</button>
-            <button data-dir="down" aria-label="Move down">↓</button>
-            <button data-dir="right" aria-label="Move right">→</button>
+        <section class="stage-card" aria-label="Playable game">
+          <canvas id="game" width="960" height="640" aria-label="Glassbox light-routing puzzle canvas"></canvas>
+          <div id="touchPad" class="touch-pad" aria-label="Touch controls">
+            <button data-action="up" aria-label="Move up">↑</button>
+            <button data-action="left" aria-label="Move left">←</button>
+            <button data-action="rotate" aria-label="Rotate prism">⟳</button>
+            <button data-action="right" aria-label="Move right">→</button>
+            <button data-action="down" aria-label="Move down">↓</button>
           </div>
-        </div>
-
-        <div class="status-grid">
-          <p id="roomStatus">Room 1/5: Verify</p>
-          <p id="objectiveStatus">Collect source seals. Avoid unverified claims.</p>
-          <p id="receiptStatus">Receipt: $0 spend, static assets only, no tracking.</p>
-        </div>
+          <p class="hint">WASD / arrows to move. Space or ⟳ rotates the nearest prism.</p>
+        </section>
       </section>
     </main>
 
     <dialog id="aboutDialog">
       <form method="dialog">
         <h2>How Built</h2>
-        <p>Glassbox is a static HTML/CSS/JS canvas game built end-to-end in Codex with GPT-5.5. Original visual assets were generated during this task with Image Gen. It uses no backend, no runtime API calls, no accounts, no tracking, and no paid services.</p>
-        <p>Goal: move the cursor-agent through Verify, Generate, Build, Deploy, and Submit while avoiding claims, paid APIs, card entry, and browser-window hazards.</p>
+        <p>Glassbox is a static canvas puzzle built in Codex with GPT-5.5. The art set was generated as separate Image Gen assets: key art, board texture, player object, core, prism, hazard, gate, room card, and victory preview.</p>
+        <p>The generated images are atmosphere and object references. Collision, beam routing, UI, and win logic are deterministic JavaScript so the game stays readable and playable.</p>
+        <p>No backend, no runtime API calls, no accounts, no tracking, no paid assets, and no card entry. Cost: $0.00.</p>
         <button type="submit">Close</button>
       </form>
     </dialog>

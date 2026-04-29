@@ -1,6 +1,6 @@
 # Glassbox: The One-Prompt Escape
 
-An unofficial OpenAI DevDay 2026 contest entry: a static browser puzzle game about moving a tiny Codex cursor from idea to public submission without breaking the rules.
+An unofficial OpenAI DevDay 2026 contest entry: a static glass-lab light-routing puzzle about freeing a trapped luminous core from a transparent containment maze.
 
 ## Play
 
@@ -21,7 +21,7 @@ Then visit `http://127.0.0.1:4173/`.
 ## Build Receipt
 
 - Built end-to-end with GPT-5.5 in Codex.
-- Original assets generated during the task with Image Gen.
+- Original assets generated during the task with Image Gen as separate single-purpose images.
 - Vanilla HTML/CSS/JS.
 - No backend, runtime API, tracking, user accounts, paid APIs, card entry, or hidden dependencies.
 - Cost ledger: $0.00.

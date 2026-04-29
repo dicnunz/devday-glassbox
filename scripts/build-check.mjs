@@ -5,10 +5,15 @@ const required = [
   "index.html",
   "styles.css",
   "game.js",
-  "assets/generated/hero-poster.png",
-  "assets/generated/cursor-sprite-sheet.png",
-  "assets/generated/level-backdrop.png",
-  "assets/generated/victory-social-card.png"
+  "assets/generated/glass-lab-hero.png",
+  "assets/generated/glass-lab-board.png",
+  "assets/generated/glass-lab-victory.png",
+  "assets/generated/avatar-cursor.png",
+  "assets/generated/core-cube.png",
+  "assets/generated/prism-node.png",
+  "assets/generated/audit-lens.png",
+  "assets/generated/glass-gate.png",
+  "assets/generated/observatory-card.png"
 ];
 
 for (const file of required) {
@@ -20,6 +25,7 @@ const js = await readFile("game.js", "utf8");
 const css = await readFile("styles.css", "utf8");
 
 if (!html.includes("Unofficial contest entry")) throw new Error("missing unofficial-entry note");
+if (html.includes("research to public ship")) throw new Error("old self-referential theme still present");
 const ownPublicUrl = "https://dicnunz.github.io/devday-glassbox/";
 const runtimeText = (html + js + css).replaceAll(ownPublicUrl, "");
 if (/https?:\/\//.test(runtimeText)) throw new Error("unexpected external URL in runtime files");

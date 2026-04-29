@@ -1,130 +1,170 @@
 const canvas = document.querySelector("#game");
 const ctx = canvas.getContext("2d");
-const PUBLIC_URL = "https://dicnunz.github.io/devday-glassbox/";
-const roomStatus = document.querySelector("#roomStatus");
-const objectiveStatus = document.querySelector("#objectiveStatus");
-const receiptStatus = document.querySelector("#receiptStatus");
+const sealCount = document.querySelector("#sealCount");
+const resetCount = document.querySelector("#resetCount");
+const runTitle = document.querySelector("#runTitle");
+const runBrief = document.querySelector("#runBrief");
 const aboutDialog = document.querySelector("#aboutDialog");
 
-const TILE = 32;
-const cols = canvas.width / TILE;
-const rows = canvas.height / TILE;
-const rooms = [
-  { name: "Verify", item: "source seal", hazard: "unverified claim", color: "#75f4ff", rect: [2, 2, 9, 7] },
-  { name: "Generate", item: "Image Gen shard", hazard: "asset shortcut", color: "#c58cff", rect: [17, 2, 10, 7] },
-  { name: "Build", item: "code bridge", hazard: "paid API", color: "#e8faff", rect: [10, 8, 10, 6] },
-  { name: "Deploy", item: "free host portal", hazard: "credit card", color: "#78ffbc", rect: [2, 12, 9, 6] },
-  { name: "Submit", item: "approval gate", hazard: "new browser window", color: "#ffbd5b", rect: [19, 12, 9, 6] }
-];
-
+const W = canvas.width;
+const H = canvas.height;
+const TILE = 40;
 const images = {};
 for (const [key, src] of Object.entries({
-  backdrop: "assets/generated/level-backdrop.png",
-  sprite: "assets/generated/cursor-sprite-sheet.png",
-  victory: "assets/generated/victory-social-card.png"
+  board: "assets/generated/glass-lab-board.png",
+  avatar: "assets/generated/avatar-cursor.png",
+  core: "assets/generated/core-cube.png",
+  prism: "assets/generated/prism-node.png",
+  hazard: "assets/generated/audit-lens.png",
+  gate: "assets/generated/glass-gate.png",
+  victory: "assets/generated/glass-lab-victory.png"
 })) {
   images[key] = new Image();
   images[key].src = src;
 }
 
-let state;
-let paused = false;
-let reducedMotion = false;
-let soundOn = false;
-let lastMove = 0;
+const walls = [
+  [0, 0, 24, 1], [0, 15, 24, 1], [0, 0, 1, 16], [23, 0, 1, 16],
+  [4, 3, 1, 7], [8, 1, 1, 5], [8, 8, 1, 6], [13, 2, 1, 7],
+  [17, 1, 1, 5], [17, 8, 1, 7], [3, 11, 7, 1], [12, 11, 8, 1],
+  [20, 4, 1, 5], [5, 6, 5, 1], [14, 6, 5, 1]
+];
+
+const prisms = [
+  { x: 6, y: 2, dir: 1 },
+  { x: 11, y: 4, dir: 0 },
+  { x: 15, y: 9, dir: 3 },
+  { x: 6, y: 13, dir: 2 },
+  { x: 21, y: 12, dir: 1 }
+];
+
+const seals = [
+  { x: 3, y: 2, lit: false },
+  { x: 19, y: 2, lit: false },
+  { x: 21, y: 7, lit: false },
+  { x: 10, y: 13, lit: false },
+  { x: 20, y: 13, lit: false }
+];
+
+const hazards = [
+  { x: 2, y: 8, dx: 1, dy: 0, min: 2, max: 7 },
+  { x: 12, y: 8, dx: 0, dy: 1, min: 7, max: 13 },
+  { x: 18, y: 10, dx: 1, dy: 0, min: 18, max: 22 }
+];
+
+let player;
+let resets;
+let paused;
+let won;
+let reducedMotion;
+let soundOn;
+let lastTick = 0;
+let lastHazard = 0;
 const keys = new Set();
 
-function reset() {
-  state = {
-    x: 4,
-    y: 5,
-    step: 0,
-    won: false,
-    deaths: 0,
-    collected: rooms.map(() => false),
-    items: rooms.map((room, index) => {
-      const [x, y, w, h] = room.rect;
-      return { index, x: x + Math.floor(w / 2), y: y + Math.floor(h / 2) };
-    }),
-    hazards: [
-      { x: 8, y: 4, type: "claim" },
-      { x: 23, y: 4, type: "shortcut" },
-      { x: 14, y: 11, type: "paid api" },
-      { x: 7, y: 15, type: "card" },
-      { x: 24, y: 15, type: "window" },
-      { x: 16, y: 13, type: "tracking" }
-    ],
-    gates: [
-      [10, 5], [16, 5], [15, 8], [10, 14], [20, 14]
-    ]
-  };
+function resetGame() {
+  player = { x: 2, y: 13 };
+  resets = 0;
   paused = false;
-  updateCopy();
+  won = false;
+  seals.forEach((seal) => { seal.lit = false; });
+  prisms[0].dir = 1; prisms[1].dir = 0; prisms[2].dir = 3; prisms[3].dir = 2; prisms[4].dir = 1;
+  updateUi();
 }
 
-function inRoom(x, y, room) {
-  const [rx, ry, w, h] = room.rect;
-  return x >= rx && x < rx + w && y >= ry && y < ry + h;
-}
-
-function isWalkable(x, y) {
-  if (x < 1 || y < 1 || x >= cols - 1 || y >= rows - 1) return false;
-  if (rooms.some((room) => inRoom(x, y, room))) return true;
-  const bridges = [
-    [11, 5], [12, 5], [13, 5], [14, 5], [15, 5],
-    [15, 6], [15, 7], [15, 8], [15, 9], [15, 10], [15, 11],
-    [11, 14], [12, 14], [13, 14], [14, 14], [15, 14], [16, 14], [17, 14], [18, 14], [19, 14],
-    [15, 12], [15, 13]
-  ];
-  return bridges.some(([bx, by]) => bx === x && by === y);
+function blocked(x, y) {
+  if (x < 1 || y < 1 || x > 22 || y > 14) return true;
+  return walls.some(([wx, wy, ww, wh]) => x >= wx && x < wx + ww && y >= wy && y < wy + wh);
 }
 
 function move(dx, dy) {
-  if (paused || state.won) return;
-  const nx = state.x + dx;
-  const ny = state.y + dy;
-  if (!isWalkable(nx, ny)) return;
-  state.x = nx;
-  state.y = ny;
-  resolveTile();
+  if (paused || won) return;
+  const nx = player.x + dx;
+  const ny = player.y + dy;
+  if (!blocked(nx, ny)) {
+    player.x = nx;
+    player.y = ny;
+  }
+  checkHazard();
+  checkWin();
 }
 
-function resolveTile() {
-  const hazard = state.hazards.find((h) => h.x === state.x && h.y === state.y);
-  if (hazard) {
-    state.deaths += 1;
-    state.x = Math.max(2, rooms[state.step].rect[0] + 1);
-    state.y = rooms[state.step].rect[1] + 1;
-    chirp(90);
-  }
-
-  const item = state.items.find((i) => i.x === state.x && i.y === state.y && i.index === state.step);
-  if (item && !state.collected[item.index]) {
-    state.collected[item.index] = true;
-    chirp(520);
-  }
-
-  const current = rooms[state.step];
-  const atExit = !inRoom(state.x, state.y, current);
-  if (state.collected[state.step] && atExit && state.step < rooms.length - 1) {
-    state.step += 1;
-    chirp(720);
-  }
-
-  if (state.step === rooms.length - 1 && state.collected[4] && state.x === 23 && state.y === 17) {
-    state.won = true;
-    chirp(920);
-  }
-  updateCopy();
+function nearestPrism() {
+  return prisms
+    .map((p) => ({ p, d: Math.abs(p.x - player.x) + Math.abs(p.y - player.y) }))
+    .filter(({ d }) => d <= 2)
+    .sort((a, b) => a.d - b.d)[0]?.p;
 }
 
-function updateCopy() {
-  const room = rooms[state.step];
-  roomStatus.textContent = state.won ? "Submission ready" : `Room ${state.step + 1}/5: ${room.name}`;
-  objectiveStatus.textContent = state.won
-    ? "Win: #OpenAIDevDay2026 | Built with GPT-5.5 in Codex + Image Gen assets, $0 spend."
-    : `Collect ${room.item}. Avoid ${room.hazard}.`;
-  receiptStatus.textContent = `Receipt: $0 spend, ${state.deaths} rule resets, no tracking.`;
+function rotatePrism() {
+  if (paused || won) return;
+  const prism = nearestPrism();
+  if (!prism) return;
+  prism.dir = (prism.dir + 1) % 4;
+  chirp(660);
+  updateUi();
+}
+
+function beamPath() {
+  const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  let x = 1;
+  let y = 5;
+  let dir = 0;
+  const points = [[x, y]];
+  const lit = new Set();
+  const seen = new Set();
+
+  for (let i = 0; i < 96; i += 1) {
+    const [dx, dy] = dirs[dir];
+    x += dx; y += dy;
+    if (blocked(x, y)) break;
+    points.push([x, y]);
+    const key = `${x},${y},${dir}`;
+    if (seen.has(key)) break;
+    seen.add(key);
+
+    const prism = prisms.find((p) => p.x === x && p.y === y);
+    if (prism) dir = (dir + (prism.dir % 2 === 0 ? 1 : 3)) % 4;
+
+    const seal = seals.find((s) => s.x === x && s.y === y);
+    if (seal) lit.add(seals.indexOf(seal));
+  }
+
+  seals.forEach((seal, index) => { seal.lit = lit.has(index); });
+  return points;
+}
+
+function checkHazard() {
+  if (hazards.some((h) => h.x === player.x && h.y === player.y)) {
+    player = { x: 2, y: 13 };
+    resets += 1;
+    chirp(100);
+  }
+  updateUi();
+}
+
+function checkWin() {
+  if (seals.every((seal) => seal.lit) && player.x >= 21 && player.y <= 2) {
+    won = true;
+    chirp(880);
+  }
+  updateUi();
+}
+
+function updateUi() {
+  const lit = seals.filter((seal) => seal.lit).length;
+  sealCount.textContent = `${lit} / ${seals.length}`;
+  resetCount.textContent = String(resets);
+  if (won) {
+    runTitle.textContent = "The Core Is Out";
+    runBrief.textContent = "Glassbox solved: the trapped core exits through a clean light path. Contest receipt stays in the About panel, not the premise.";
+  } else if (lit === seals.length) {
+    runTitle.textContent = "Gate Open";
+    runBrief.textContent = "All seals are lit. Reach the upper-right containment door without touching an audit lens.";
+  } else {
+    runTitle.textContent = "Open the Quiet Vault";
+    runBrief.textContent = "Rotate nearby prisms so the beam touches every seal. The game is about light, glass, and escape.";
+  }
 }
 
 function chirp(freq) {
@@ -133,143 +173,171 @@ function chirp(freq) {
   const osc = audio.createOscillator();
   const gain = audio.createGain();
   osc.frequency.value = freq;
-  gain.gain.value = 0.035;
+  gain.gain.value = 0.025;
   osc.connect(gain).connect(audio.destination);
   osc.start();
-  osc.stop(audio.currentTime + 0.08);
-}
-
-function drawRoom(room, index) {
-  const [x, y, w, h] = room.rect;
-  ctx.save();
-  ctx.strokeStyle = state.step === index ? room.color : "rgba(200,245,255,.23)";
-  ctx.lineWidth = state.step === index ? 3 : 1;
-  ctx.fillStyle = state.step === index ? "rgba(110,239,255,.08)" : "rgba(255,255,255,.025)";
-  ctx.fillRect(x * TILE, y * TILE, w * TILE, h * TILE);
-  ctx.strokeRect(x * TILE, y * TILE, w * TILE, h * TILE);
-  ctx.fillStyle = room.color;
-  ctx.font = "700 13px system-ui";
-  ctx.fillText(room.name.toUpperCase(), x * TILE + 12, y * TILE + 22);
-  ctx.restore();
+  osc.stop(audio.currentTime + 0.07);
 }
 
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (images.backdrop.complete) {
-    ctx.globalAlpha = 0.44;
-    ctx.drawImage(images.backdrop, 0, 0, canvas.width, canvas.height);
-    ctx.globalAlpha = 1;
-  }
-  ctx.fillStyle = "rgba(3,7,9,.58)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  drawGrid();
-  rooms.forEach(drawRoom);
-  drawBridges();
-  drawHazards();
-  drawItems();
+  const path = beamPath();
+  drawBackdrop();
+  drawBoard();
+  drawBeam(path);
+  drawObjects();
   drawPlayer();
-  drawOverlay();
+  drawStateOverlay();
   requestAnimationFrame(draw);
 }
 
-function drawGrid() {
-  ctx.strokeStyle = "rgba(201,247,255,.09)";
+function drawBackdrop() {
+  ctx.clearRect(0, 0, W, H);
+  if (images.board.complete) {
+    ctx.globalAlpha = 0.23;
+    ctx.drawImage(images.board, 0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+  ctx.fillStyle = "rgba(3,7,8,.82)";
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawBoard() {
+  ctx.strokeStyle = "rgba(190,245,255,.10)";
   ctx.lineWidth = 1;
-  for (let x = 0; x <= cols; x += 1) {
-    ctx.beginPath(); ctx.moveTo(x * TILE, 0); ctx.lineTo(x * TILE, canvas.height); ctx.stroke();
+  for (let x = 0; x <= W; x += TILE) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
   }
-  for (let y = 0; y <= rows; y += 1) {
-    ctx.beginPath(); ctx.moveTo(0, y * TILE); ctx.lineTo(canvas.width, y * TILE); ctx.stroke();
+  for (let y = 0; y <= H; y += TILE) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
+
+  ctx.fillStyle = "rgba(150,220,230,.13)";
+  ctx.strokeStyle = "rgba(160,245,255,.24)";
+  for (const [x, y, w, h] of walls) {
+    ctx.fillRect(x * TILE, y * TILE, w * TILE, h * TILE);
+    ctx.strokeRect(x * TILE, y * TILE, w * TILE, h * TILE);
+  }
+
+  ctx.fillStyle = "rgba(255,189,91,.14)";
+  ctx.strokeStyle = "#ffbd5b";
+  ctx.strokeRect(21 * TILE, TILE, 2 * TILE, 2 * TILE);
+  ctx.fillRect(21 * TILE, TILE, 2 * TILE, 2 * TILE);
 }
 
-function drawBridges() {
-  ctx.fillStyle = "rgba(110,239,255,.22)";
-  for (let y = 1; y < rows - 1; y += 1) {
-    for (let x = 1; x < cols - 1; x += 1) {
-      if (isWalkable(x, y) && !rooms.some((r) => inRoom(x, y, r))) {
-        ctx.fillRect(x * TILE + 9, y * TILE + 9, 14, 14);
-      }
-    }
-  }
+function drawBeam(path) {
+  ctx.save();
+  ctx.strokeStyle = "#77f5ff";
+  ctx.shadowColor = "#77f5ff";
+  ctx.shadowBlur = reducedMotion ? 0 : 18;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  path.forEach(([x, y], index) => {
+    const px = x * TILE + TILE / 2;
+    const py = y * TILE + TILE / 2;
+    if (index === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  });
+  ctx.stroke();
+  ctx.restore();
 }
 
-function drawHazards() {
-  for (const h of state.hazards) {
-    ctx.fillStyle = "rgba(255,101,95,.22)";
-    ctx.strokeStyle = "#ff655f";
-    ctx.fillRect(h.x * TILE + 4, h.y * TILE + 4, 24, 24);
-    ctx.strokeRect(h.x * TILE + 4, h.y * TILE + 4, 24, 24);
-    ctx.fillStyle = "#ffd0cc";
-    ctx.font = "18px system-ui";
-    ctx.fillText("!", h.x * TILE + 13, h.y * TILE + 24);
-  }
-}
+function drawObjects() {
+  drawIcon(images.core, 21, 1, 74, seals.every((seal) => seal.lit) ? 0.92 : 0.42);
 
-function drawItems() {
-  for (const item of state.items) {
-    if (state.collected[item.index]) continue;
-    const room = rooms[item.index];
-    ctx.fillStyle = room.color;
-    ctx.shadowColor = room.color;
-    ctx.shadowBlur = reducedMotion ? 0 : 16;
+  for (const seal of seals) {
+    ctx.fillStyle = seal.lit ? "#9effff" : "rgba(255,255,255,.22)";
+    ctx.strokeStyle = seal.lit ? "#9effff" : "rgba(255,255,255,.38)";
     ctx.beginPath();
-    ctx.arc(item.x * TILE + 16, item.y * TILE + 16, 10, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
+    ctx.arc(seal.x * TILE + 20, seal.y * TILE + 20, seal.lit ? 13 : 10, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
   }
-  ctx.fillStyle = "#ffbd5b";
-  ctx.fillRect(23 * TILE + 6, 17 * TILE + 6, 20, 20);
+
+  for (const prism of prisms) {
+    drawIcon(images.prism, prism.x, prism.y, 58, 0.82);
+    ctx.strokeStyle = "#ffbd5b";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const cx = prism.x * TILE + 20;
+    const cy = prism.y * TILE + 20;
+    const angle = prism.dir * Math.PI / 2;
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * 22, cy + Math.sin(angle) * 22);
+    ctx.stroke();
+  }
+
+  for (const h of hazards) drawIcon(images.hazard, h.x, h.y, 54, 0.78);
+}
+
+function drawIcon(image, gx, gy, size, alpha) {
+  const px = gx * TILE + TILE / 2 - size / 2;
+  const py = gy * TILE + TILE / 2 - size / 2;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (image.complete) ctx.drawImage(image, px, py, size, size);
+  else {
+    ctx.fillStyle = "#72f5ff";
+    ctx.fillRect(px, py, size, size);
+  }
+  ctx.restore();
 }
 
 function drawPlayer() {
-  const x = state.x * TILE + 16;
-  const y = state.y * TILE + 16;
+  const x = player.x * TILE + 20;
+  const y = player.y * TILE + 20;
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = "#f5feff";
-  ctx.strokeStyle = "#69eeff";
+  ctx.shadowColor = "#72f5ff";
+  ctx.shadowBlur = reducedMotion ? 0 : 14;
+  ctx.fillStyle = "#f4fdff";
+  ctx.strokeStyle = "#72f5ff";
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(-9, -12);
-  ctx.lineTo(14, 0);
-  ctx.lineTo(2, 4);
-  ctx.lineTo(8, 16);
-  ctx.lineTo(1, 18);
-  ctx.lineTo(-5, 6);
-  ctx.lineTo(-12, 12);
+  ctx.moveTo(-10, -13);
+  ctx.lineTo(15, 1);
+  ctx.lineTo(3, 5);
+  ctx.lineTo(8, 17);
+  ctx.lineTo(0, 19);
+  ctx.lineTo(-5, 7);
+  ctx.lineTo(-13, 12);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
   ctx.restore();
 }
 
-function drawOverlay() {
-  if (paused || state.won) {
-    ctx.fillStyle = "rgba(3,7,9,.72)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#effcff";
-    ctx.font = "700 34px system-ui";
-    ctx.fillText(state.won ? "PUBLIC SUBMISSION PATH CLEARED" : "PAUSED", 74, 104);
-    ctx.font = "18px system-ui";
-    const line = state.won
-      ? "#OpenAIDevDay2026 | Built with GPT-5.5 in Codex + Image Gen assets | $0 spend"
-      : "Resume when ready. The glass remembers every constraint.";
-    ctx.fillText(line, 76, 142);
-    if (state.won) {
-      ctx.fillText(`Playable link: ${PUBLIC_URL}`, 76, 174);
-      ctx.fillText("Unofficial contest entry. No backend, tracking, accounts, or paid APIs.", 76, 206);
-    }
-  }
+function drawStateOverlay() {
+  if (!paused && !won) return;
+  ctx.fillStyle = "rgba(3,7,8,.78)";
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#f1fdff";
+  ctx.font = "700 36px system-ui";
+  ctx.fillText(won ? "THE CORE IS OUT" : "PAUSED", 64, 96);
+  ctx.font = "18px system-ui";
+  ctx.fillStyle = "#a9c0c4";
+  ctx.fillText(won ? "A glass-lab light puzzle. Built with GPT-5.5 in Codex and separate Image Gen assets." : "The beam holds. Resume when ready.", 66, 132);
 }
 
 function tick(time) {
-  if (time - lastMove > 96) {
-    if (keys.has("ArrowUp") || keys.has("w")) move(0, -1);
-    if (keys.has("ArrowDown") || keys.has("s")) move(0, 1);
-    if (keys.has("ArrowLeft") || keys.has("a")) move(-1, 0);
-    if (keys.has("ArrowRight") || keys.has("d")) move(1, 0);
-    lastMove = time;
+  if (!paused && !won && time - lastHazard > 520) {
+    for (const h of hazards) {
+      if (h.dx) {
+        h.x += h.dx;
+        if (h.x <= h.min || h.x >= h.max) h.dx *= -1;
+      } else {
+        h.y += h.dy;
+        if (h.y <= h.min || h.y >= h.max) h.dy *= -1;
+      }
+    }
+    checkHazard();
+    lastHazard = time;
+  }
+
+  if (time - lastTick > 105) {
+    if (keys.has("arrowup") || keys.has("w")) move(0, -1);
+    if (keys.has("arrowdown") || keys.has("s")) move(0, 1);
+    if (keys.has("arrowleft") || keys.has("a")) move(-1, 0);
+    if (keys.has("arrowright") || keys.has("d")) move(1, 0);
+    lastTick = time;
   }
   requestAnimationFrame(tick);
 }
@@ -280,24 +348,27 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     keys.add(key);
   }
-  if (key === "r") reset();
-  if (key === " ") paused = !paused;
+  if (key === " ") {
+    event.preventDefault();
+    rotatePrism();
+  }
+  if (key === "r") resetGame();
 });
-
 window.addEventListener("keyup", (event) => keys.delete(event.key.toLowerCase()));
 
 document.querySelector("#touchPad").addEventListener("pointerdown", (event) => {
-  const button = event.target.closest("button[data-dir]");
+  const button = event.target.closest("button[data-action]");
   if (!button) return;
-  const dir = button.dataset.dir;
-  if (dir === "up") move(0, -1);
-  if (dir === "down") move(0, 1);
-  if (dir === "left") move(-1, 0);
-  if (dir === "right") move(1, 0);
+  const action = button.dataset.action;
+  if (action === "up") move(0, -1);
+  if (action === "down") move(0, 1);
+  if (action === "left") move(-1, 0);
+  if (action === "right") move(1, 0);
+  if (action === "rotate") rotatePrism();
 });
 
 document.querySelector("#aboutBtn").addEventListener("click", () => aboutDialog.showModal());
-document.querySelector("#restartBtn").addEventListener("click", reset);
+document.querySelector("#restartBtn").addEventListener("click", resetGame);
 document.querySelector("#pauseBtn").addEventListener("click", (event) => {
   paused = !paused;
   event.currentTarget.setAttribute("aria-pressed", String(paused));
@@ -312,19 +383,19 @@ document.querySelector("#soundBtn").addEventListener("click", (event) => {
   event.currentTarget.setAttribute("aria-pressed", String(soundOn));
 });
 
-reset();
+resetGame();
 requestAnimationFrame(draw);
 requestAnimationFrame(tick);
 
 window.glassbox = {
   move,
-  reset,
+  rotatePrism,
+  reset: resetGame,
   winFast() {
-    for (let i = 0; i < rooms.length; i += 1) state.collected[i] = true;
-    state.step = 4;
-    state.x = 23;
-    state.y = 17;
-    resolveTile();
+    seals.forEach((seal) => { seal.lit = true; });
+    player.x = 22;
+    player.y = 2;
+    checkWin();
   },
-  getState: () => ({ ...state })
+  getState: () => ({ player, resets, won, seals: seals.map((s) => s.lit), prisms: prisms.map((p) => p.dir) })
 };
