@@ -33,10 +33,11 @@
           <img src="assets/generated/observatory-card.png" alt="Glass observatory concept art">
           <div>
             <h2 id="runTitle">Open the Quiet Vault</h2>
-            <p id="runBrief">Rotate prisms so the beam reaches each seal. Then cross the gate and release the core.</p>
+            <p id="runBrief">Rotate mirrors, split light through prisms, open shutters, focus lenses, and release the core.</p>
           </div>
           <dl>
-            <div><dt>Seals</dt><dd id="sealCount">0 / 5</dd></div>
+            <div><dt>Level</dt><dd id="levelCount">1 / 7</dd></div>
+            <div><dt>Lit</dt><dd id="sealCount">0 / 1</dd></div>
             <div><dt>Resets</dt><dd id="resetCount">0</dd></div>
             <div><dt>Rule</dt><dd>No backend. No trackers. No paid APIs.</dd></div>
           </dl>
@@ -51,7 +52,7 @@
             <button data-action="right" aria-label="Move right">→</button>
             <button data-action="down" aria-label="Move down">↓</button>
           </div>
-          <p class="hint">WASD / arrows to move. Space or ⟳ rotates the nearest prism.</p>
+          <p class="hint">WASD / arrows move. Space / ⟳ rotates or toggles the nearest mechanism.</p>
         </section>
       </section>
     </main>
@@ -60,7 +61,7 @@
       <form method="dialog">
         <h2>How Built</h2>
         <p>Glassbox is a static canvas puzzle built in Codex with GPT-5.5. The art set was generated as separate Image Gen assets: key art, board texture, player object, core, prism, hazard, gate, room card, and victory preview.</p>
-        <p>The generated images are atmosphere and object references. Collision, beam routing, UI, and win logic are deterministic JavaScript so the game stays readable and playable.</p>
+        <p>The generated images are atmosphere and object references. The seven handcrafted levels, collision, beam branching, mirror/prism behavior, shutters, lenses, gate sensors, UI, and win logic are deterministic JavaScript.</p>
         <p>No backend, no runtime API calls, no accounts, no tracking, no paid assets, and no card entry. Cost: $0.00.</p>
         <button type="submit">Close</button>
       </form>

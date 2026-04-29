@@ -30,16 +30,29 @@ page.on("console", (msg) => {
 });
 page.on("pageerror", (error) => errors.push(error.message));
 await page.goto("http://127.0.0.1:4173/", { waitUntil: "networkidle" });
+await page.screenshot({ path: "devday-glassbox-proof/screenshots/local-game-start.png", fullPage: true });
+const assetCount = await page.evaluate(() => [...document.images].filter((image) => image.complete && image.naturalWidth > 0).length);
+if (assetCount < 1) throw new Error("page images did not load");
 await page.keyboard.press("ArrowRight");
 await page.keyboard.press("KeyD");
 await page.locator("#aboutBtn").click();
 await page.locator("dialog button").click();
 await page.locator('[data-action="right"]').click();
 await page.locator('[data-action="rotate"]').click();
-await page.evaluate(() => window.glassbox.winFast());
+await page.evaluate(() => {
+  for (let i = 0; i < 7; i += 1) {
+    window.glassbox.applySolution();
+    window.glassbox.completeLevelForTest();
+    if (i < 6) window.glassbox.nextLevelForTest();
+  }
+});
 await page.screenshot({ path: "devday-glassbox-proof/screenshots/local-game-win.png", fullPage: true });
 const state = await page.evaluate(() => window.glassbox.getState());
-if (!state.won) throw new Error("win state not reached");
+if (!state.campaignComplete || state.levelIndex !== 6) throw new Error("final win state not reached");
+await page.setViewportSize({ width: 390, height: 844 });
+await page.reload({ waitUntil: "networkidle" });
+await page.locator('[data-action="right"]').click();
+await page.screenshot({ path: "devday-glassbox-proof/screenshots/local-game-mobile.png", fullPage: true });
 if (errors.length) throw new Error(`console/page errors: ${errors.join(" | ")}`);
 await browser.close();
 server.close();
